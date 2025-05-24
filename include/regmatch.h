@@ -82,7 +82,7 @@ class Matcher{
         return false;
     }
 
-        FSA genFSA(){
+    FSA genFSA(){
         FSA s;
         int regex_pointer = 0;
         int state_pointer = 0;
