@@ -2,10 +2,12 @@
 #include "regmatch.h"
 
 int main(){
-    Matcher m("(aa)*");
+    Matcher m("(aa)*a?");
 
     m.printFSA();
-    m.convertToMinDFA(m.getFSA()).printFSA();
+    FSA f = m.convertToMinDFA((m.getFSA()));
+
+    f.printFSA();
 
     std::cout << std::boolalpha << std::endl;
     std::cout << m.matchString("aa") << '\n';   // true

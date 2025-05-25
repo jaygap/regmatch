@@ -108,27 +108,26 @@ class Matcher{
                 }
 
                 char prev = regex.at(regex_pointer - 1);
-                
-                if(prev == ')'){
-                    if(current == '*'){
-                        s.states[state_pointer].transitions.insert({'\0', state_pointers.top()});
-                        s.states[state_pointers.top()].transitions.insert({'\0', state_pointer});
-                    } else if (current == '+'){
-                        s.states[state_pointer].transitions.insert({'\0', state_pointers.top()});
-                    } else{
-                        s.states[state_pointers.top()].transitions.insert({'\0', state_pointer});    
-                    }
+                int other_state = (prev == ')' ? state_pointers.top() : state_pointer - 1);
 
+                if(prev == ')'){
                     state_pointers.pop();
+                } 
+                
+                if(current == '*'){
+                    s.states[state_pointer].transitions.insert({'\0', other_state});
+                    s.states[other_state].transitions.insert({'\0', state_pointer});
+                } else if (current == '+'){
+                    s.states[state_pointer].transitions.insert({'\0', other_state});
                 } else{
-                    s.states[state_pointer].transitions.insert({'\0', state_pointer - 1});
+                    s.states[other_state].transitions.insert({'\0', state_pointer});    
                 }
             } else if(current == '|'){
 
             } else if(current == '^' || current == '$'){
 
             } else if(current == '\\'){
-
+                
             } else{
                 state = State();
                 state.label = "q" + std::to_string(s.states.size());
@@ -143,7 +142,7 @@ class Matcher{
 
         s.states[s.states.size() - 1].is_final = true;
 
-        return s;
+        return convertToMinDFA(s);
     }
 
     bool hasEpsilonTransitions(State s){
@@ -159,40 +158,39 @@ class Matcher{
         FSA fsa_no_epsilon = FSA();
         State state_to_add = State();
 
-        state_to_add.label = "q0";
-        state_to_add.is_final = false;
-        fsa_no_epsilon.states.push_back(state_to_add);
-
         //remove \0 (epsilon transitions)
         for(int i = 0; i < fsa.states.size(); i++){
-            State current_state = fsa.states[i];
+            int current_state = i;
             state_to_add = State();
-            std::unordered_set<int> visited;
-            std::stack<int> stack;
+            state_to_add.is_final = false;
+            state_to_add.label = "q" + std::to_string(i);
 
-            stack.push(i);
-            visited.insert(i);
+            std::unordered_set<int> visited_states;
+            std::stack<int> to_visit;
 
-            while(hasEpsilonTransitions(fsa.states[stack.top()])){
-                current_state = fsa.states[current_state.transitions.find('\0')->second];
-                stack.push(current_state.transitions.find('\0')->second);
-                visited.insert(stack.top());
-            }
+            to_visit.push(i);
 
             do{
-                for(auto t : current_state.transitions){
-                    if(t.first != '\0'){
-                        state_to_add.transitions.insert(t);
+                if(visited_states.count(current_state) == 0){
+                    for(auto t : fsa.states[current_state].transitions){
+                        if(t.first == '\0'){
+                            to_visit.push(t.second);
+                        } else{
+                            state_to_add.transitions.insert(t);
+                        }
+                    }
+
+                    if(fsa.states[current_state].is_final == true){
+                        state_to_add.is_final = true;
                     }
                 }
 
-                if(current_state.transitions.count('\0') != 0){
-                    current_state = fsa.states[current_state.transitions.find('\0')->second];
-                } else{
-                    break;
-                }
+                visited_states.insert(current_state);
+                current_state = to_visit.top();
+                to_visit.pop();
+            } while(!to_visit.empty());
 
-            } while(!stack.empty());
+            fsa_no_epsilon.states.push_back(state_to_add);
         }
 
         //remove duplicate outgoing transitions
