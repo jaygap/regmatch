@@ -28,7 +28,8 @@ DFA -> MIN DFA
 */
 
 struct State {
-  std::unordered_multimap<char, int> transitions; // int is index of the state in the FSA
+  std::unordered_multimap<char, int>
+      transitions; // int is index of the state in the FSA
   bool is_final;
   std::string label;
 };
@@ -48,7 +49,7 @@ struct FSA {
     }
     std::cout << "}\nTransitions:\n{\n";
 
-    for (State s : states) {
+    for (const State &s : states) {
       for (auto transition : s.transitions) {
         std::cout << "(" << s.label << ", " << transition.first << ", "
                   << states[transition.second].label << ")\n";
@@ -62,7 +63,7 @@ struct FSA {
 class Matcher {
 private:
   FSA automata;
-  std::string regex = "";
+  std::string regex;
 
   bool checkBrackets(char left, char right) {
     if (left == '(' && right == ')') {
@@ -99,6 +100,7 @@ private:
         state_pointers.push(state_pointer);
       } else if (current == ')') {
         // do nothing
+        std::cout << "closing bracket";
       } else if (current == '*' || current == '+' || current == '?') {
         if (regex_pointer == 0) {
           std::cout << "ERROR: Invalid regex. * or + or ? come at the start of "
@@ -124,9 +126,9 @@ private:
           s.states[other_state].transitions.insert({'\0', state_pointer});
         }
       } else if (current == '|') {
-
+        std::cout << "or";
       } else if (current == '^' || current == '$') {
-
+        std::cout << "start/end of line";
       } else if (current == '\\') {
 
       } else {
@@ -195,38 +197,6 @@ private:
 
     // remove duplicate outgoing transitions
     FSA dfa = FSA();
-    std::vector<std::vector<int>> visited;
-    std::stack<std::vector<int>> to_visit;
-    std::vector<int> current;
-    int state_counter = 0;
-
-    to_visit.push({0}); // initial state;
-
-    do {
-      std::unordered_map<char, std::vector<int>> transitions;
-
-      state_to_add = State();
-      state_to_add.label = "q" + std::to_string(state_counter);
-      current = to_visit.top();
-      to_visit.pop();
-      visited.push_back(current);
-
-      for (int i = 0; i < current.size(); i++) {
-        for (auto t : fsa_no_epsilon.states[current[i]].transitions) {
-          auto itr = transitions.find(t.first);
-          if (itr != transitions.end()) {
-            if (!vectorContains(t.second, itr->second)) {
-              itr->second.push_back(t.second);
-            }
-          } else {
-            transitions.insert(t);
-          }
-        }
-      }
-
-      dfa.states.push_back(state_to_add);
-
-    } while (!to_visit.empty());
 
     dfa.printFSA();
 
@@ -295,11 +265,11 @@ public:
     return active_state.is_final;
   }
 
-  bool compareRegex(Matcher m) {
-    // check if the regex of self and m are equivalent
+  // bool compareRegex(Matcher m) {
+  //   // check if the regex of self and m are equivalent
 
-    return false;
-  }
+  //   return false;
+  // }
 
-  bool compareRegex(std::string s) { return compareRegex(Matcher(s)); }
+  // bool compareRegex(std::string s) { return compareRegex(Matcher(s)); }
 };
