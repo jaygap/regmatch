@@ -1,8 +1,9 @@
-#include <string>
-#include <vector>
+#include <iostream>
 #include <stack>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 // TODO:
 /*
@@ -23,223 +24,282 @@ Low priority:
 
 FSA W/ EPSILON TRANSITIONS -> FSA W/O EPSILON TRANSITIONS
 FSA W/O EPSILON TRANSITIONS -> DFA
-DFA -> MIN DFA 
+DFA -> MIN DFA
 */
 
-struct State{
-    std::unordered_multimap<char, int> transitions; //int is index of the state in the FSA
-    bool is_final;
-    std::string label;
-
-    State(){};
+struct State {
+  std::unordered_multimap<char, int> transitions; // int is index of the state in the FSA
+  bool is_final;
+  std::string label;
 };
 
-struct FSA{
-    std::vector<State> states;
+struct FSA {
+  std::vector<State> states;
 
-    FSA(){};
+  void printFSA() {
+    std::cout << "States: {";
 
-    void printFSA(){
-        std::cout << "States: {";
+    for (int i = 0; i < states.size(); i++) {
+      std::cout << states[i].label;
 
-        for(int i = 0; i < states.size(); i++){
-            std::cout << states[i].label;
-
-            if(i + 1 < states.size()){
-                std::cout << ", ";
-            }
-        }
-        std::cout << "}\nTransitions:\n{\n";
-
-        for(State s : states){
-            for(auto transition : s.transitions){
-                std::cout << "(" << s.label << ", " << transition.first << ", " << states[transition.second].label << ")\n"; 
-            }
-        }
-        
-        std::cout << '}' << std::endl;
+      if (i + 1 < states.size()) {
+        std::cout << ", ";
+      }
     }
+    std::cout << "}\nTransitions:\n{\n";
+
+    for (State s : states) {
+      for (auto transition : s.transitions) {
+        std::cout << "(" << s.label << ", " << transition.first << ", "
+                  << states[transition.second].label << ")\n";
+      }
+    }
+
+    std::cout << '}' << std::endl;
+  }
 };
 
-class Matcher{
-    private:
-    FSA automata;
-    std::string regex = "";
+class Matcher {
+private:
+  FSA automata;
+  std::string regex = "";
 
-    bool checkBrackets(char left, char right){
-        if(left == '(' && right == ')'){
-            return true;
-        }
-    
-        if(left == '[' && right == ']'){
-            return true;
-        }
-    
-        if(left == '{' && right == '}'){
-            return true;
-        }
-    
-        return false;
+  bool checkBrackets(char left, char right) {
+    if (left == '(' && right == ')') {
+      return true;
     }
 
-    FSA genFSA(){
-        FSA s;
-        int regex_pointer = 0;
-        int state_pointer = 0;
-        std::stack<int> state_pointers;
-        char current;
-        State state = State();
+    if (left == '[' && right == ']') {
+      return true;
+    }
 
-        state.label = "q0";
+    if (left == '{' && right == '}') {
+      return true;
+    }
+
+    return false;
+  }
+
+  FSA genFSA() {
+    FSA s;
+    int regex_pointer = 0;
+    int state_pointer = 0;
+    std::stack<int> state_pointers;
+    char current;
+    State state = State();
+
+    state.label = "q0";
+    state.is_final = false;
+    s.states.push_back(state); // initial state
+
+    do {
+      current = regex.at(regex_pointer);
+
+      if (current == '(') {
+        state_pointers.push(state_pointer);
+      } else if (current == ')') {
+        // do nothing
+      } else if (current == '*' || current == '+' || current == '?') {
+        if (regex_pointer == 0) {
+          std::cout << "ERROR: Invalid regex. * or + or ? come at the start of "
+                       "the regex which is not allowed."
+                    << std::endl;
+          return FSA();
+        }
+
+        char prev = regex.at(regex_pointer - 1);
+        int other_state =
+            (prev == ')' ? state_pointers.top() : state_pointer - 1);
+
+        if (prev == ')') {
+          state_pointers.pop();
+        }
+
+        if (current == '*') {
+          s.states[state_pointer].transitions.insert({'\0', other_state});
+          s.states[other_state].transitions.insert({'\0', state_pointer});
+        } else if (current == '+') {
+          s.states[state_pointer].transitions.insert({'\0', other_state});
+        } else {
+          s.states[other_state].transitions.insert({'\0', state_pointer});
+        }
+      } else if (current == '|') {
+
+      } else if (current == '^' || current == '$') {
+
+      } else if (current == '\\') {
+
+      } else {
+        state = State();
+        state.label = "q" + std::to_string(s.states.size());
         state.is_final = false;
-        s.states.push_back(state); //initial state
+        s.states.push_back(state);
+        s.states[state_pointer].transitions.insert(
+            {current, s.states.size() - 1});
+        state_pointer = s.states.size() - 1;
+      }
+      regex_pointer++;
+    } while (regex_pointer < regex.length());
 
-        do{
-            current = regex.at(regex_pointer);
+    s.states[s.states.size() - 1].is_final = true;
 
-            if(current == '('){
-                state_pointers.push(state_pointer);
-            } else if(current == ')'){
-                //do nothing
-            } else if(current == '*' || current == '+' || current == '?'){
-                if(regex_pointer == 0){
-                    std::cout << "ERROR: Invalid regex. * or + or ? come at the start of the regex which is not allowed." << std::endl;
-                    return FSA();
-                }
+    return convertToMinDFA(s);
+  }
 
-                char prev = regex.at(regex_pointer - 1);
-                int other_state = (prev == ')' ? state_pointers.top() : state_pointer - 1);
+  bool hasEpsilonTransitions(State s) {
+    if (s.transitions.count('\0') > 0) {
+      return true;
+    }
 
-                if(prev == ')'){
-                    state_pointers.pop();
-                } 
-                
-                if(current == '*'){
-                    s.states[state_pointer].transitions.insert({'\0', other_state});
-                    s.states[other_state].transitions.insert({'\0', state_pointer});
-                } else if (current == '+'){
-                    s.states[state_pointer].transitions.insert({'\0', other_state});
-                } else{
-                    s.states[other_state].transitions.insert({'\0', state_pointer});    
-                }
-            } else if(current == '|'){
+    return false;
+  }
 
-            } else if(current == '^' || current == '$'){
+  FSA convertToMinDFA(FSA fsa) {
+    FSA fsa_no_epsilon = FSA();
+    State state_to_add = State();
 
-            } else if(current == '\\'){
-                
-            } else{
-                state = State();
-                state.label = "q" + std::to_string(s.states.size());
-                state.is_final = false;
-                s.states.push_back(state);
-                s.states[state_pointer].transitions.insert({current, s.states.size() - 1});
-                state_pointer = s.states.size() - 1;
+    // remove \0 (epsilon transitions)
+    for (int i = 0; i < fsa.states.size(); i++) {
+      int current_state = i;
+      state_to_add = State();
+      state_to_add.is_final = false;
+      state_to_add.label = "q" + std::to_string(i);
+
+      std::unordered_set<int> visited_states;
+      std::stack<int> to_visit;
+
+      to_visit.push(i);
+
+      do {
+        if (visited_states.count(current_state) == 0) {
+          for (auto t : fsa.states[current_state].transitions) {
+            if (t.first == '\0') {
+              to_visit.push(t.second);
+            } else {
+              state_to_add.transitions.insert(t);
             }
+          }
 
-            regex_pointer++;
-        } while(regex_pointer < regex.length());
-
-        s.states[s.states.size() - 1].is_final = true;
-
-        return convertToMinDFA(s);
-    }
-
-    bool hasEpsilonTransitions(State s){
-        if(s.transitions.count('\0') > 0){
-            return true;
+          if (fsa.states[current_state].is_final == true) {
+            state_to_add.is_final = true;
+          }
         }
 
-        return false;
+        visited_states.insert(current_state);
+        current_state = to_visit.top();
+        to_visit.pop();
+      } while (!to_visit.empty());
+
+      fsa_no_epsilon.states.push_back(state_to_add);
     }
 
-    public:
-    FSA convertToMinDFA(FSA fsa){
-        FSA fsa_no_epsilon = FSA();
-        State state_to_add = State();
+    // remove duplicate outgoing transitions
+    FSA dfa = FSA();
+    std::vector<std::vector<int>> visited;
+    std::stack<std::vector<int>> to_visit;
+    std::vector<int> current;
+    int state_counter = 0;
 
-        //remove \0 (epsilon transitions)
-        for(int i = 0; i < fsa.states.size(); i++){
-            int current_state = i;
-            state_to_add = State();
-            state_to_add.is_final = false;
-            state_to_add.label = "q" + std::to_string(i);
+    to_visit.push({0}); // initial state;
 
-            std::unordered_set<int> visited_states;
-            std::stack<int> to_visit;
+    do {
+      std::unordered_map<char, std::vector<int>> transitions;
 
-            to_visit.push(i);
+      state_to_add = State();
+      state_to_add.label = "q" + std::to_string(state_counter);
+      current = to_visit.top();
+      to_visit.pop();
+      visited.push_back(current);
 
-            do{
-                if(visited_states.count(current_state) == 0){
-                    for(auto t : fsa.states[current_state].transitions){
-                        if(t.first == '\0'){
-                            to_visit.push(t.second);
-                        } else{
-                            state_to_add.transitions.insert(t);
-                        }
-                    }
-
-                    if(fsa.states[current_state].is_final == true){
-                        state_to_add.is_final = true;
-                    }
-                }
-
-                visited_states.insert(current_state);
-                current_state = to_visit.top();
-                to_visit.pop();
-            } while(!to_visit.empty());
-
-            fsa_no_epsilon.states.push_back(state_to_add);
-        }
-
-        //remove duplicate outgoing transitions
-        //FSA dfa = FSA();
-
-        //main min routine so that comparing regex is easy
-        //FSA min_dfa = FSA();
-
-        return fsa_no_epsilon;
-    }
-
-    Matcher(std::string s){
-        regex = s;
-        automata = genFSA();
-    }
-
-    std::string getRegex(){
-        return regex;
-    }
-
-    FSA getFSA(){
-        return automata;
-    }
-
-    void printFSA(){
-        automata.printFSA();
-    }
-    
-    bool matchString(std::string s){
-        State active_state = automata.states.front(); //first state is always the initial state
-        
-        for(char& c : s){
-            if(active_state.transitions.find(c) != active_state.transitions.end()){
-                active_state = automata.states[active_state.transitions.find(c)->second];
-            } else{
-                return false;
+      for (int i = 0; i < current.size(); i++) {
+        for (auto t : fsa_no_epsilon.states[current[i]].transitions) {
+          auto itr = transitions.find(t.first);
+          if (itr != transitions.end()) {
+            if (!vectorContains(t.second, itr->second)) {
+              itr->second.push_back(t.second);
             }
+          } else {
+            transitions.insert(t);
+          }
+        }
+      }
+
+      dfa.states.push_back(state_to_add);
+
+    } while (!to_visit.empty());
+
+    dfa.printFSA();
+
+    // main min routine so that comparing regex is easy
+    // FSA min_dfa = FSA();
+
+    return fsa_no_epsilon;
+  }
+
+  bool vectorContains(int needle, std::vector<int> haystack) {
+    for (int i = 0; i < haystack.size(); i++) {
+      if (haystack[i] == needle) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool vectorInVector(std::vector<int> needle,
+                      std::vector<std::vector<int>> haystack) {
+    for (int i = 0; i < haystack.size(); i++) {
+      if (haystack[i].size() != needle.size()) {
+        continue;
+      }
+
+      for (int j = 0; j < needle.size(); j++) {
+        if (haystack[i][j] != needle[j]) {
+          break;
         }
 
-        return active_state.is_final;
+        if (j + 1 == needle.size()) {
+          return true;
+        }
+      }
     }
 
-    bool compareRegex(Matcher m){
-        //check if the regex of self and m are equivalent
+    return false;
+  }
 
+public:
+  Matcher(std::string s) {
+    regex = s;
+    automata = genFSA();
+  }
+
+  std::string getRegex() { return regex; }
+
+  FSA getFSA() { return automata; }
+
+  void printFSA() { automata.printFSA(); }
+
+  bool matchString(std::string s) {
+    State active_state =
+        automata.states.front(); // first state is always the initial state
+
+    for (char &c : s) {
+      if (active_state.transitions.find(c) != active_state.transitions.end()) {
+        active_state =
+            automata.states[active_state.transitions.find(c)->second];
+      } else {
         return false;
+      }
     }
 
-    bool compareRegex(std::string s){
-        return compareRegex(Matcher(s));
-    }
+    return active_state.is_final;
+  }
+
+  bool compareRegex(Matcher m) {
+    // check if the regex of self and m are equivalent
+
+    return false;
+  }
+
+  bool compareRegex(std::string s) { return compareRegex(Matcher(s)); }
 };
