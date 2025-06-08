@@ -162,7 +162,7 @@ private:
       }
       else if (current == ')')
       {
-        if(depth_of_pipes.top().first == depth){
+        if(!depth_of_pipes.empty() && depth_of_pipes.top().first == depth){
           auto pipe_info = depth_of_pipes.top();
           depth_of_pipes.pop();
 
@@ -215,15 +215,28 @@ private:
         }
       }
       else if (current == '|'){
-        depth_of_pipes.push({depth, state_pointer});
+       // if(!depth_of_pipes.empty() && depth_of_pipes.top().first == depth){
+       //   auto pipe_info = depth_of_pipes.top();
 
-        state = State();
-        state.label = "q" + std::to_string(s.states.size());
-        state.is_final = false;
-        s.states.push_back(state);
-        s.states[state_pointers.top()].transitions.insert({'\0', s.states.size() - 1});
+       //   state = State();
+       //   state.is_final = false;
+       //   state.label = "q" + std::to_string(s.states.size());
+       //   s.states.push_back(state);
 
-        state_pointer = s.states.size() - 1;
+       //   s.states[s.states.size() - 2].transitions.insert({'\0', s.states.size() - 1});
+       //   s.states[pipe_info.second].transitions.insert({'\0', s.states.size() - 1});
+       // }
+       // else {
+       //   depth_of_pipes.push({depth, state_pointer});
+
+       //   state = State();
+       //   state.label = "q" + std::to_string(s.states.size());
+       //   state.is_final = false;
+       //   s.states.push_back(state);
+       //   s.states[state_pointers.top()].transitions.insert({'\0', s.states.size() - 1});
+       // }
+
+       // state_pointer = s.states.size() - 1;
       }
       else if (current == '^' || current == '$')
       {
@@ -256,21 +269,19 @@ private:
       regex_pointer++;
     } while (regex_pointer < regex.length());
 
-    if(!depth_of_pipes.empty()){
-      if(depth_of_pipes.top().first == depth){
-        auto pipe_info = depth_of_pipes.top();
-        depth_of_pipes.pop();
+    if(!depth_of_pipes.empty() && depth_of_pipes.top().first == depth){
+      auto pipe_info = depth_of_pipes.top();
+      depth_of_pipes.pop();
 
-        state = State();
-        state.is_final = false;
-        state.label = "q" + std::to_string(s.states.size());
-        s.states.push_back(state);
+      state = State();
+      state.is_final = false;
+      state.label = "q" + std::to_string(s.states.size());
+      s.states.push_back(state);
 
-        s.states[s.states.size() - 2].transitions.insert({'\0', s.states.size() - 1});
-        s.states[pipe_info.second].transitions.insert({'\0', s.states.size() - 1});
+      s.states[s.states.size() - 2].transitions.insert({'\0', s.states.size() - 1});
+      s.states[pipe_info.second].transitions.insert({'\0', s.states.size() - 1});
 
-        state_pointer = s.states.size() - 1;
-      }
+      state_pointer = s.states.size() - 1;
     }
 
     s.states[s.states.size() - 1].is_final = true;
