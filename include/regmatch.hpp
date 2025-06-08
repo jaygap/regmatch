@@ -215,28 +215,38 @@ private:
         }
       }
       else if (current == '|'){
-       // if(!depth_of_pipes.empty() && depth_of_pipes.top().first == depth){
-       //   auto pipe_info = depth_of_pipes.top();
+        if(!depth_of_pipes.empty() && depth_of_pipes.top().first == depth){
+          auto pipe_info = depth_of_pipes.top();
 
-       //   state = State();
-       //   state.is_final = false;
-       //   state.label = "q" + std::to_string(s.states.size());
-       //   s.states.push_back(state);
+          state = State();
+          state.is_final = false;
+          state.label = "q" + std::to_string(s.states.size());
+          s.states.push_back(state);
 
-       //   s.states[s.states.size() - 2].transitions.insert({'\0', s.states.size() - 1});
-       //   s.states[pipe_info.second].transitions.insert({'\0', s.states.size() - 1});
-       // }
-       // else {
-       //   depth_of_pipes.push({depth, state_pointer});
+          s.states[s.states.size() - 2].transitions.insert({'\0', s.states.size() - 1});
+          s.states[pipe_info.second].transitions.insert({'\0', s.states.size() - 1});
 
-       //   state = State();
-       //   state.label = "q" + std::to_string(s.states.size());
-       //   state.is_final = false;
-       //   s.states.push_back(state);
-       //   s.states[state_pointers.top()].transitions.insert({'\0', s.states.size() - 1});
-       // }
+          depth_of_pipes.pop();
+          depth_of_pipes.push({depth, s.states.size() - 1});
 
-       // state_pointer = s.states.size() - 1;
+          state = State();
+          state.is_final = false;
+          state.label = "q" + std::to_string(s.states.size());
+          s.states.push_back(state);
+
+          s.states[pipe_info.second + 1].transitions.insert({'\0', s.states.size() - 1});
+        }
+        else {
+          depth_of_pipes.push({depth, state_pointer});
+
+          state = State();
+          state.label = "q" + std::to_string(s.states.size());
+          state.is_final = false;
+          s.states.push_back(state);
+          s.states[state_pointers.top()].transitions.insert({'\0', s.states.size() - 1});
+        }
+
+        state_pointer = s.states.size() - 1;
       }
       else if (current == '^' || current == '$')
       {

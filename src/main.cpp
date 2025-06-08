@@ -1,15 +1,15 @@
-#include "../include/regmatch.h"
+#include "../include/regmatch.hpp"
 #include <iostream>
 
 int main() {
-  Matcher m("a|b|c");
+  Matcher m("ab|cd|ef");
 
   m.printFSA();
 
   std::cout << std::boolalpha << std::endl;
-  std::cout << m.matchString("ab") << '\n';   // true
-  std::cout << m.matchString("") << '\n';     // true
-  std::cout << m.matchString("cccc") << '\n';   // false
-  std::cout << m.matchString("abcabababc") << '\n';  // false
-  std::cout << m.matchString("ace") << '\n'; // true
+  std::cout << m.matchString("ab") << '\n';
+  std::cout << m.matchString("") << '\n';
+  std::cout << m.matchString("cccc") << '\n';
+  std::cout << m.matchString("abcabababc") << '\n';
+  std::cout << m.matchString("ace") << '\n';
 }
