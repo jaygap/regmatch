@@ -259,6 +259,13 @@ private:
           std::cout << "ERROR: Invalid regex. \\ is at the end of a string which is not allowed. It should always be followed by another character";
         }
 
+        state = State();
+        state.label = "q" + std::to_string(s.states.size());
+        state.is_final = false;
+        s.states.push_back(state);
+        s.states[state_pointer].transitions.insert({'\0', s.states.size() - 1});
+        state_pointer = s.states.size() - 1; 
+
         regex_pointer++;
         state = State();
         state.label = "q" + std::to_string(s.states.size());
@@ -266,16 +273,23 @@ private:
         s.states.push_back(state);
         s.states[state_pointer].transitions.insert({regex.at(regex_pointer), s.states.size() - 1});
         state_pointer = s.states.size() - 1;
-      }
+     }
       else
       {
         state = State();
         state.label = "q" + std::to_string(s.states.size());
         state.is_final = false;
         s.states.push_back(state);
+        s.states[state_pointer].transitions.insert({'\0', s.states.size() - 1});
+        state_pointer = s.states.size() - 1;
+ 
+        state = State();
+        state.label = "q" + std::to_string(s.states.size());
+        state.is_final = false;
+        s.states.push_back(state);
         s.states[state_pointer].transitions.insert({current, s.states.size() - 1});
         state_pointer = s.states.size() - 1;
-      }
+     }
       regex_pointer++;
     } while (regex_pointer < regex.length());
 
@@ -317,67 +331,128 @@ private:
     FSA fsa_no_epsilon = FSA();
     State state_to_add = State();
 
-    // remove \0 (epsilon transitions)
-    for (int i = 0; i < fsa.states.size(); i++)
-    {
-      int current_state = i;
+    //TODO FIX THIS SHIT !!! FIND THE CORE DUMP !
+
+    std::unordered_map<int, int> old_new_states;
+    std::stack<int> stack;
+
+    stack.push(0);
+
+    while(!stack.empty()){
+      int current = stack.top();
+      stack.pop();
+
       state_to_add = State();
       state_to_add.is_final = false;
-      state_to_add.label = "q" + std::to_string(i);
+      state_to_add.label = "q" + std::to_string(fsa_no_epsilon.states.empty() ? 0 : fsa_no_epsilon.states.size());
 
-      std::unordered_set<int> visited_states;
-      std::stack<int> to_visit;
+      std::unordered_set<int> visited;
 
-      to_visit.push(i);
+      for(auto t : fsa.states[current].transitions){
+        if(t.first == '\0'){
+          std::stack<int> epsilon_stack;
 
-      do
-      {
-        if (visited_states.count(current_state) == 0)
-        {
-          for (auto t : fsa.states[current_state].transitions)
-          {
-            if (t.first == '\0')
-            {
-              to_visit.push(t.second);
+          epsilon_stack.push(t.second);
+          visited.insert(t.second);
+
+          do{
+            int top = epsilon_stack.top();
+            epsilon_stack.pop();
+
+            if(fsa.states[top].is_final){
+              state_to_add.is_final = true;
             }
-            else
-            {
-              state_to_add.transitions.insert(t);
-            }
-          }
 
-          if (fsa.states[current_state].is_final == true)
-          {
-            state_to_add.is_final = true;
-          }
+            for(auto t : fsa.states[top].transitions){
+              if(t.first == '\0' && visited.count(t.second) == 0){
+                epsilon_stack.push(t.second);
+                visited.insert(t.second);
+              } else{
+                state_to_add.transitions.insert(t);
+                stack.push(t.second);
+              }
+            }
+
+          } while(!epsilon_stack.empty());
+        } else{
+          state_to_add.transitions.insert(t);
+          stack.push(t.second);
         }
-
-        visited_states.insert(current_state);
-        current_state = to_visit.top();
-        to_visit.pop();
-      } while (!to_visit.empty());
+      }
 
       fsa_no_epsilon.states.push_back(state_to_add);
+      old_new_states.insert({current, fsa_no_epsilon.states.size()});
     }
+
+    for(auto s : fsa_no_epsilon.states){
+      for(auto t : s.transitions){
+        auto itr = old_new_states.find(t.second);
+
+        t.second = itr->second;
+      }
+    }
+
+    // remove \0 (epsilon transitions)
+    //for (int i = 0; i < fsa.states.size(); i++)
+    //{
+    //  int current_state = i;
+    //  state_to_add = State();
+    //  state_to_add.is_final = false;
+    //  state_to_add.label = "q" + std::to_string(i);
+
+    //  std::unordered_set<int> visited_states;
+    //  std::stack<int> to_visit;
+
+    //  to_visit.push(i);
+
+    //  do
+    //  {
+    //    if (visited_states.count(current_state) == 0)
+    //    {
+    //      for (auto t : fsa.states[current_state].transitions)
+    //      {
+    //        if (t.first == '\0')
+    //        {
+    //          to_visit.push(t.second);
+    //        }
+    //        else
+    //        {
+    //          state_to_add.transitions.insert(t);
+    //        }
+    //      }
+
+    //      if (fsa.states[current_state].is_final == true)
+    //      {
+    //        state_to_add.is_final = true;
+    //      }
+    //    }
+
+    //    visited_states.insert(current_state);
+    //    current_state = to_visit.top();
+    //    to_visit.pop();
+    //  } while (!to_visit.empty());
+
+    //  fsa_no_epsilon.states.push_back(state_to_add);
+    //}
 
     // subset construction
     FSA dfa = FSA();
 
     std::vector<std::vector<int>> set_states; // multiple states put together
-    std::stack<std::vector<int>> stack;
+    std::stack<std::vector<int>> vector_stack;
 
-    stack.push({0});
+    vector_stack.push({0});
     set_states.push_back({0});
 
     do
     {
       state_to_add = State();
       state_to_add.is_final = false;
-      state_to_add.label = "q" + std::to_string(dfa.states.size());
+      state_to_add.label = "q" + std::to_string(dfa.states.empty() ? 0 : dfa.states.size());
 
       std::unordered_map<char, int> transitions;
-      std::vector<int> current = stack.top();
-      stack.pop();
+      std::vector<int> current = vector_stack.top();
+      vector_stack.pop();
 
       for (auto itr = current.begin(); itr != current.end(); itr++)
       {
@@ -410,7 +485,7 @@ private:
           if (!vectorInVector(t->second, set_states))
           {
             set_states.push_back(t->second);
-            stack.push(t->second);
+            vector_stack.push(t->second);
           }
 
           int index = indexOf(t->second, set_states);
@@ -424,7 +499,7 @@ private:
 
       dfa.states.push_back(state_to_add);
 
-    } while (!stack.empty());
+    } while (!vector_stack.empty());
 
     // main min routine so that comparing regex is easy
     // FSA min_dfa = FSA();
@@ -434,6 +509,10 @@ private:
 
   int indexOf(std::vector<int> needle, std::vector<std::vector<int>> haystack)
   {
+    if(needle.empty() || haystack.empty()){
+      return -1;
+    }
+
     for (int i = 0; i < haystack.size(); i++)
     {
       if (equalVectors(needle, haystack[i]))
@@ -448,6 +527,14 @@ private:
   // compares the values of each vector, regardless of position
   bool equalVectors(std::vector<int> a, std::vector<int> b)
   {
+    if(a.empty() && b.empty()){
+      return true;
+    } else if(a.empty()){
+      return false;
+    } else if(b.empty()){
+      return false;
+    }
+
     if (a.size() != b.size())
     {
       return false;
@@ -469,6 +556,10 @@ private:
 
   bool vectorContains(int needle, std::vector<int> haystack)
   {
+    if(haystack.empty()){
+      return false;
+    }
+
     for (int i = 0; i < haystack.size(); i++)
     {
       if (haystack[i] == needle)
@@ -480,9 +571,12 @@ private:
     return false;
   }
 
-  bool vectorInVector(std::vector<int> needle,
-                      std::vector<std::vector<int>> haystack)
+  bool vectorInVector(std::vector<int> needle, std::vector<std::vector<int>> haystack)
   {
+    if(needle.empty() || haystack.empty()){
+      return false;
+    }
+
     for (auto itr = haystack.begin(); itr != haystack.end(); itr++)
     {
       if (equalVectors(needle, *itr))
