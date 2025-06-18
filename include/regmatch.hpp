@@ -39,41 +39,6 @@ struct FSA
 {
   std::vector<State> states;
 
-  void appendFSAs(std::vector<FSA> graphs)
-  {
-    int initial_final = states.size() - 1;
-    std::vector<int> fsa_final;
-
-    for(FSA g : graphs){
-      int offset = states.size() - 1;
-
-      for (State state : g.states)
-      {
-        for (auto itr = state.transitions.begin(); itr != state.transitions.end(); itr++)
-        {
-          itr->second += offset;
-        }
-
-        state.label = "q" + std::to_string(states.size());
-        states.push_back(state);
-      }
-
-      fsa_final.push_back(states.size() - 1);
-      states[initial_final].transitions.insert({'\0', offset + 1});
-    }
-
-    State last = State();
-
-    last.label = "q" + std::to_string(states.size());
-    last.is_final = false;
-
-    states.push_back(last);
-
-    for(int p : fsa_final){
-      states[p].transitions.insert({'\0', states.size() - 1});
-    }
-  }
-
   void printFSA()
   {
     std::cout << "States: {";
@@ -137,7 +102,7 @@ private:
 
   FSA genFSA()
   {
-    FSA s;
+    FSA s = FSA();
     int regex_pointer = 0;
     int state_pointer = 0;
     std::stack<int> state_pointers;
@@ -328,183 +293,63 @@ private:
 
   FSA convertToMinDFA(FSA fsa)
   {
+    // epsilon transition removal
     FSA fsa_no_epsilon = FSA();
-    State state_to_add = State();
 
-    //TODO FIX THIS SHIT !!! FIND THE CORE DUMP !
+    State state_to_add;
 
-    std::unordered_map<int, int> old_new_states;
-    std::stack<int> stack;
+    std::stack<int> index_stack;
+    std::unordered_set<int> visited;
+    std::unordered_map<int, int> old_new_indexes;
 
-    stack.push(0);
+    index_stack.push(0);
+    visited.insert(0);
 
-    while(!stack.empty()){
-      int current = stack.top();
-      stack.pop();
-
+    while(!index_stack.empty()){
       state_to_add = State();
       state_to_add.is_final = false;
-      state_to_add.label = "q" + std::to_string(fsa_no_epsilon.states.empty() ? 0 : fsa_no_epsilon.states.size());
+      state_to_add.label = "q" + std::to_string(fsa_no_epsilon.states.size());
 
-      std::unordered_set<int> visited;
+      std::stack<int> states_to_check;
 
-      for(auto t : fsa.states[current].transitions){
-        if(t.first == '\0'){
-          std::stack<int> epsilon_stack;
+      int initial = index_stack.top();
+      index_stack.pop();
 
-          epsilon_stack.push(t.second);
-          visited.insert(t.second);
+      int current;
 
-          do{
-            int top = epsilon_stack.top();
-            epsilon_stack.pop();
+      states_to_check.push(initial);
 
-            if(fsa.states[top].is_final){
-              state_to_add.is_final = true;
+      do{
+        current = states_to_check.top();
+        states_to_check.pop();
+
+        std::cout << fsa.states.size() << '\n';
+
+        for(auto t : fsa.states.at(current).transitions){
+          if(t.first == '\0'){
+            states_to_check.push(t.second);
+          } else{
+            state_to_add.transitions.insert(t);
+
+            if(visited.count(t.second) == 0){
+              index_stack.push(t.second);
+              visited.insert(t.second);
             }
-
-            for(auto t : fsa.states[top].transitions){
-              if(t.first == '\0' && visited.count(t.second) == 0){
-                epsilon_stack.push(t.second);
-                visited.insert(t.second);
-              } else{
-                state_to_add.transitions.insert(t);
-                stack.push(t.second);
-              }
-            }
-
-          } while(!epsilon_stack.empty());
-        } else{
-          state_to_add.transitions.insert(t);
-          stack.push(t.second);
+          }
         }
-      }
+      }while(!states_to_check.empty());
 
+      old_new_indexes.insert({initial, fsa_no_epsilon.states.size()});
       fsa_no_epsilon.states.push_back(state_to_add);
-      old_new_states.insert({current, fsa_no_epsilon.states.size()});
     }
-
-    for(auto s : fsa_no_epsilon.states){
-      for(auto t : s.transitions){
-        auto itr = old_new_states.find(t.second);
-
-        t.second = itr->second;
-      }
-    }
-
-    // remove \0 (epsilon transitions)
-    //for (int i = 0; i < fsa.states.size(); i++)
-    //{
-    //  int current_state = i;
-    //  state_to_add = State();
-    //  state_to_add.is_final = false;
-    //  state_to_add.label = "q" + std::to_string(i);
-
-    //  std::unordered_set<int> visited_states;
-    //  std::stack<int> to_visit;
-
-    //  to_visit.push(i);
-
-    //  do
-    //  {
-    //    if (visited_states.count(current_state) == 0)
-    //    {
-    //      for (auto t : fsa.states[current_state].transitions)
-    //      {
-    //        if (t.first == '\0')
-    //        {
-    //          to_visit.push(t.second);
-    //        }
-    //        else
-    //        {
-    //          state_to_add.transitions.insert(t);
-    //        }
-    //      }
-
-    //      if (fsa.states[current_state].is_final == true)
-    //      {
-    //        state_to_add.is_final = true;
-    //      }
-    //    }
-
-    //    visited_states.insert(current_state);
-    //    current_state = to_visit.top();
-    //    to_visit.pop();
-    //  } while (!to_visit.empty());
-
-    //  fsa_no_epsilon.states.push_back(state_to_add);
-    //}
 
     // subset construction
-    FSA dfa = FSA();
-
-    std::vector<std::vector<int>> set_states; // multiple states put together
-    std::stack<std::vector<int>> vector_stack;
-
-    vector_stack.push({0});
-    set_states.push_back({0});
-
-    do
-    {
-      state_to_add = State();
-      state_to_add.is_final = false;
-      state_to_add.label = "q" + std::to_string(dfa.states.empty() ? 0 : dfa.states.size());
-
-      std::unordered_map<char, int> transitions;
-      std::vector<int> current = vector_stack.top();
-      vector_stack.pop();
-
-      for (auto itr = current.begin(); itr != current.end(); itr++)
-      {
-        std::unordered_multimap<char, int> transitions = fsa_no_epsilon.states[*itr].transitions;
-        std::unordered_map<char, std::vector<int>> merged_transitions;
-
-        if (fsa_no_epsilon.states[*itr].is_final)
-        {
-          state_to_add.is_final = true;
-        }
-
-        for (auto t = transitions.begin(); t != transitions.end(); t++)
-        {
-          if (merged_transitions.count(t->first) == 0)
-          {
-            merged_transitions.insert({t->first, {t->second}});
-          }
-          else
-          {
-            auto itr = merged_transitions.find(t->first);
-            if (!vectorContains(t->second, (*itr).second))
-            {
-              (*itr).second.push_back(t->second);
-            }
-          }
-        }
-
-        for (auto t = merged_transitions.begin(); t != merged_transitions.end(); t++)
-        {
-          if (!vectorInVector(t->second, set_states))
-          {
-            set_states.push_back(t->second);
-            vector_stack.push(t->second);
-          }
-
-          int index = indexOf(t->second, set_states);
-
-          if (index != -1)
-          {
-            state_to_add.transitions.insert({t->first, index});
-          }
-        }
-      }
-
-      dfa.states.push_back(state_to_add);
-
-    } while (!vector_stack.empty());
+    // FSA dfa = FSA();
 
     // main min routine so that comparing regex is easy
     // FSA min_dfa = FSA();
 
-    return dfa;
+    return fsa_no_epsilon;
   }
 
   int indexOf(std::vector<int> needle, std::vector<std::vector<int>> haystack)
