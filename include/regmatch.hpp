@@ -45,15 +45,11 @@ struct FSA
 
     for (int i = 0; i < states.size(); i++)
     {
-      if(states[i].is_final){
-        std::cout << "\e[4m"; //underlines final states
-      }
+      if(states[i].is_final) std::cout << "\e[4m"; //underlines final states
 
       std::cout << states[i].label;
 
-      if(states[i].is_final){
-        std::cout << "\e[0m"; //ends unerline of final states
-      }
+      if(states[i].is_final) std::cout << "\e[0m"; //ends unerline of final states
 
       if (i + 1 < states.size())
       {
@@ -77,7 +73,7 @@ struct FSA
 class Matcher
 {
 private:
-  FSA automata;
+  FSA *automata;
   std::string regex;
 
   bool checkBrackets(char left, char right)
@@ -100,9 +96,9 @@ private:
     return false;
   }
 
-  FSA genFSA()
+  FSA* genFSA()
   {
-    FSA s = FSA();
+    FSA *s = new FSA();
     int regex_pointer = 0;
     int state_pointer = 0;
     std::stack<int> state_pointers;
@@ -110,10 +106,10 @@ private:
     int depth = 0;
     std::stack<std::pair<int, int>> depth_of_pipes; //keeps track of the (depth, state index of final state in first branch) of different pipe operators
 
-    State state = State();
-    state.label = "q0";
-    state.is_final = false;
-    s.states.push_back(state); // initial state
+    State *state = new State();
+    state->label = "q0";
+    state->is_final = false;
+    (*s).states.push_back(*state); // initial state
     state_pointers.push(0);
 
     do
@@ -131,15 +127,15 @@ private:
           auto pipe_info = depth_of_pipes.top();
           depth_of_pipes.pop();
 
-          state = State();
-          state.is_final = false;
-          state.label = "q" + std::to_string(s.states.size());
-          s.states.push_back(state);
+          state = new State();
+          state->is_final = false;
+          state->label = "q" + std::to_string((*s).states.size());
+          (*s).states.push_back(*state);
 
-          s.states[s.states.size() - 2].transitions.insert({'\0', s.states.size() - 1});
-          s.states[pipe_info.second].transitions.insert({'\0', s.states.size() - 1});
+          (*s).states[(*s).states.size() - 2].transitions.insert({'\0', (*s).states.size() - 1});
+          (*s).states[pipe_info.second].transitions.insert({'\0', (*s).states.size() - 1});
 
-          state_pointer = s.states.size() - 1;
+          state_pointer = (*s).states.size() - 1;
         }
 
         depth--;
@@ -149,7 +145,7 @@ private:
         if (regex_pointer == 0)
         {
           std::cout << "ERROR: Invalid regex. * or + or ? come at the start of the regex which is not allowed." << std::endl;
-          return FSA();
+          return new FSA();
         }
 
         char prev = regex.at(regex_pointer - 1);
@@ -167,51 +163,51 @@ private:
 
         if (current == '*')
         {
-          s.states[state_pointer].transitions.insert({'\0', other_state});
-          s.states[other_state].transitions.insert({'\0', state_pointer});
+          (*s).states[state_pointer].transitions.insert({'\0', other_state});
+          (*s).states[other_state].transitions.insert({'\0', state_pointer});
         }
         else if (current == '+')
         {
-          s.states[state_pointer].transitions.insert({'\0', other_state});
+          (*s).states[state_pointer].transitions.insert({'\0', other_state});
         }
         else
         {
-          s.states[other_state].transitions.insert({'\0', state_pointer});
+          (*s).states[other_state].transitions.insert({'\0', state_pointer});
         }
       }
       else if (current == '|'){
         if(!depth_of_pipes.empty() && depth_of_pipes.top().first == depth){
           auto pipe_info = depth_of_pipes.top();
 
-          state = State();
-          state.is_final = false;
-          state.label = "q" + std::to_string(s.states.size());
-          s.states.push_back(state);
+          state = new State();
+          state->is_final = false;
+          state->label = "q" + std::to_string((*s).states.size());
+          (*s).states.push_back(*state);
 
-          s.states[s.states.size() - 2].transitions.insert({'\0', s.states.size() - 1});
-          s.states[pipe_info.second].transitions.insert({'\0', s.states.size() - 1});
+          (*s).states[(*s).states.size() - 2].transitions.insert({'\0', (*s).states.size() - 1});
+          (*s).states[pipe_info.second].transitions.insert({'\0', (*s).states.size() - 1});
 
           depth_of_pipes.pop();
-          depth_of_pipes.push({depth, s.states.size() - 1});
+          depth_of_pipes.push({depth, (*s).states.size() - 1});
 
-          state = State();
-          state.is_final = false;
-          state.label = "q" + std::to_string(s.states.size());
-          s.states.push_back(state);
+          state = new State();
+          state->is_final = false;
+          state->label = "q" + std::to_string((*s).states.size());
+          (*s).states.push_back(*state);
 
-          s.states[pipe_info.second + 1].transitions.insert({'\0', s.states.size() - 1});
+          (*s).states[pipe_info.second + 1].transitions.insert({'\0', (*s).states.size() - 1});
         }
         else {
           depth_of_pipes.push({depth, state_pointer});
 
-          state = State();
-          state.label = "q" + std::to_string(s.states.size());
-          state.is_final = false;
-          s.states.push_back(state);
-          s.states[state_pointers.top()].transitions.insert({'\0', s.states.size() - 1});
+          state = new State();
+          state->label = "q" + std::to_string((*s).states.size());
+          state->is_final = false;
+          (*s).states.push_back(*state);
+          (*s).states[state_pointers.top()].transitions.insert({'\0', (*s).states.size() - 1});
         }
 
-        state_pointer = s.states.size() - 1;
+        state_pointer = (*s).states.size() - 1;
       }
       else if (current == '^' || current == '$')
       {
@@ -224,36 +220,36 @@ private:
           std::cout << "ERROR: Invalid regex. \\ is at the end of a string which is not allowed. It should always be followed by another character";
         }
 
-        state = State();
-        state.label = "q" + std::to_string(s.states.size());
-        state.is_final = false;
-        s.states.push_back(state);
-        s.states[state_pointer].transitions.insert({'\0', s.states.size() - 1});
-        state_pointer = s.states.size() - 1; 
+        state = new State();
+        state->label = "q" + std::to_string((*s).states.size());
+        state->is_final = false;
+        (*s).states.push_back(*state);
+        (*s).states[state_pointer].transitions.insert({'\0', (*s).states.size() - 1});
+        state_pointer = (*s).states.size() - 1; 
 
         regex_pointer++;
-        state = State();
-        state.label = "q" + std::to_string(s.states.size());
-        state.is_final = false;
-        s.states.push_back(state);
-        s.states[state_pointer].transitions.insert({regex.at(regex_pointer), s.states.size() - 1});
-        state_pointer = s.states.size() - 1;
+        state = new State();
+        state->label = "q" + std::to_string((*s).states.size());
+        state->is_final = false;
+        (*s).states.push_back(*state);
+        (*s).states[state_pointer].transitions.insert({regex.at(regex_pointer), (*s).states.size() - 1});
+        state_pointer = (*s).states.size() - 1;
      }
       else
       {
-        state = State();
-        state.label = "q" + std::to_string(s.states.size());
-        state.is_final = false;
-        s.states.push_back(state);
-        s.states[state_pointer].transitions.insert({'\0', s.states.size() - 1});
-        state_pointer = s.states.size() - 1;
+        state = new State();
+        state->label = "q" + std::to_string((*s).states.size());
+        state->is_final = false;
+        (*s).states.push_back(*state);
+        (*s).states[state_pointer].transitions.insert({'\0', (*s).states.size() - 1});
+        state_pointer = (*s).states.size() - 1;
  
-        state = State();
-        state.label = "q" + std::to_string(s.states.size());
-        state.is_final = false;
-        s.states.push_back(state);
-        s.states[state_pointer].transitions.insert({current, s.states.size() - 1});
-        state_pointer = s.states.size() - 1;
+        state = new State();
+        state->label = "q" + std::to_string((*s).states.size());
+        state->is_final = false;
+        (*s).states.push_back(*state);
+        (*s).states[state_pointer].transitions.insert({current, (*s).states.size() - 1});
+        state_pointer = (*s).states.size() - 1;
      }
       regex_pointer++;
     } while (regex_pointer < regex.length());
@@ -262,20 +258,22 @@ private:
       auto pipe_info = depth_of_pipes.top();
       depth_of_pipes.pop();
 
-      state = State();
-      state.is_final = false;
-      state.label = "q" + std::to_string(s.states.size());
-      s.states.push_back(state);
+      state = new State();
+      state->is_final = false;
+      state->label = "q" + std::to_string((*s).states.size());
+      (*s).states.push_back(*state);
 
-      s.states[s.states.size() - 2].transitions.insert({'\0', s.states.size() - 1});
-      s.states[pipe_info.second].transitions.insert({'\0', s.states.size() - 1});
+      (*s).states[(*s).states.size() - 2].transitions.insert({'\0', (*s).states.size() - 1});
+      (*s).states[pipe_info.second].transitions.insert({'\0', (*s).states.size() - 1});
 
-      state_pointer = s.states.size() - 1;
+      state_pointer = (*s).states.size() - 1;
     }
 
-    s.states[s.states.size() - 1].is_final = true;
+    (*s).states[(*s).states.size() - 1].is_final = true;
 
-    s.printFSA();
+    (*s).printFSA();
+
+    std::cout << s->states.size() << " pre conversion\n";
 
     return convertToMinDFA(s);
  
@@ -291,56 +289,23 @@ private:
     return false;
   }
 
-  FSA convertToMinDFA(FSA fsa)
+  FSA* convertToMinDFA(FSA *fsa)
   {
     // epsilon transition removal
-    FSA fsa_no_epsilon = FSA();
+    FSA *fsa_no_epsilon = new FSA();
 
-    State state_to_add;
+    std::stack<int> to_visit;
 
-    std::stack<int> index_stack;
-    std::unordered_set<int> visited;
-    std::unordered_map<int, int> old_new_indexes;
+    to_visit.push(0);
 
-    index_stack.push(0);
-    visited.insert(0);
+    while(!to_visit.empty()){
+      int current = to_visit.top();
+      std::unordered_set<int> visited;
 
-    while(!index_stack.empty()){
-      state_to_add = State();
-      state_to_add.is_final = false;
-      state_to_add.label = "q" + std::to_string(fsa_no_epsilon.states.size());
+      visited.insert(current);
+      to_visit.pop();
 
-      std::stack<int> states_to_check;
 
-      int initial = index_stack.top();
-      index_stack.pop();
-
-      int current;
-
-      states_to_check.push(initial);
-
-      do{
-        current = states_to_check.top();
-        states_to_check.pop();
-
-        std::cout << fsa.states.size() << '\n';
-
-        for(auto t : fsa.states.at(current).transitions){
-          if(t.first == '\0'){
-            states_to_check.push(t.second);
-          } else{
-            state_to_add.transitions.insert(t);
-
-            if(visited.count(t.second) == 0){
-              index_stack.push(t.second);
-              visited.insert(t.second);
-            }
-          }
-        }
-      }while(!states_to_check.empty());
-
-      old_new_indexes.insert({initial, fsa_no_epsilon.states.size()});
-      fsa_no_epsilon.states.push_back(state_to_add);
     }
 
     // subset construction
@@ -443,21 +408,20 @@ public:
 
   std::string getRegex() { return regex; }
 
-  FSA getFSA() { return automata; }
+  FSA* getFSA() { return automata; }
 
-  void printFSA() { automata.printFSA(); }
+  void printFSA() { (*automata).printFSA(); }
 
   bool matchString(std::string s)
   {
     State active_state =
-        automata.states.front(); // first state is always the initial state
+        (*automata).states.front(); // first state is always the initial state
 
     for (char &c : s)
     {
       if (active_state.transitions.find(c) != active_state.transitions.end())
       {
-        active_state =
-            automata.states[active_state.transitions.find(c)->second];
+        active_state = (*automata).states[active_state.transitions.find(c)->second];
       }
       else
       {
