@@ -2,7 +2,7 @@
 #include <iostream>
 
 int main() {
-  Matcher m("a|b|c");
+  Matcher m("a*b|c?d+");
 
   m.printFSA();
 

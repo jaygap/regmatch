@@ -3,7 +3,9 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <algorithm> 
 #include <vector>
+#include <queue>
 
 // TODO:
 /*
@@ -234,59 +236,130 @@ private:
     // epsilon transition removal
     std::vector<State> fsa_no_epsilon;
 
-    std::stack<int> to_visit;
-    std::unordered_map<int, int> index_key;
-    to_visit.push(0);
+    //lambda function to calculate epsilon closure
+    auto epsilonClosure = [&fsa_no_epsilon, initial_fsa](int start_index) -> std::unordered_set<int> {
+      std::unordered_set<int> closure;
+      std::stack<int> stack;
+      stack.push(start_index);
 
-    while (!to_visit.empty()) {
-      std::unordered_set<int> already_visited;
-      std::stack<int> epsilon_reachable_states;
+      closure.insert(start_index);
 
-      const int initial = to_visit.top();
-      int current = to_visit.top();
-      to_visit.pop();
-      already_visited.insert(current);
+      while(!stack.empty()){
+        int current = stack.top();
+        stack.pop();
 
-      State state_to_add = State();
-      state_to_add.label = "q" + std::to_string(fsa_no_epsilon.size());
-      state_to_add.is_final = initial_fsa[initial].is_final;
-
-      do{
-        for (auto t : initial_fsa[current].transitions) {
-          if (t.first == '\0') {
-            epsilon_reachable_states.push(t.second);
-
-            state_to_add.is_final = initial_fsa[t.second].is_final;
-          } else {
-            state_to_add.transitions.insert(t);
-
-            if(already_visited.count(t.second) == 0){
-              to_visit.push(t.second);
-              already_visited.insert(t.second);
+        for(auto t : initial_fsa[current].transitions){
+          if(t.first == '\0'){
+            if(closure.find(t.second) == closure.end()){
+              closure.insert(t.second);
+              stack.push(t.second);
             }
           }
         }
+      }
 
-        if(!epsilon_reachable_states.empty()){
-          current = epsilon_reachable_states.top();
-          epsilon_reachable_states.pop();
+      return closure;
+    };
+
+    //creates a string that is a unique key for epsilon-closure
+    auto getClosureKey = [](const std::unordered_set<int>& closure) -> std::string {
+      std::vector<int> sorted(closure.begin(), closure.end());
+      std::sort(sorted.begin(), sorted.end());
+      std::string key;
+
+      for (int index : sorted) {
+        key += std::to_string(index) + ",";
+      }
+      
+      return key;
+    };
+
+    //creates a state with a given label and epsilon-closure
+    auto createState = [initial_fsa](const std::string& label, const std::unordered_set<int>& closure) -> State{
+      State state;
+      state.label = label;
+      state.is_final = false;
+
+      for(int index : closure) {
+        if (initial_fsa[index].is_final) {
+          state.is_final = true;
         }
-      } while(!epsilon_reachable_states.empty());
+        
+        for (auto transition : initial_fsa[index].transitions) {
+          if (transition.first != '\0') {
+            state.transitions.insert(transition);
+          }
+        }
+      }
 
-      fsa_no_epsilon.push_back(state_to_add);
-      index_key.insert({initial, fsa_no_epsilon.size() - 1});
-    }
+      return state;
+    };
 
-    for(State& s : fsa_no_epsilon){
-      for(auto itr = s.transitions.begin(); itr != s.transitions.end(); itr++){
-        char transition_char = itr->first;
-        int new_index = index_key.at(itr->second);
-        s.transitions.erase(itr);
-        s.transitions.insert({transition_char, new_index});
+    std::unordered_map<std::string, int> closure_to_index;
+    std::unordered_set<int> first_closure = epsilonClosure(0);
+    std::string start_key = getClosureKey(first_closure);
+
+    closure_to_index.insert({start_key, 0});
+
+    State start_state = createState("q0", first_closure);
+
+    fsa_no_epsilon.push_back(start_state);
+
+    std::queue<std::unordered_set<int>> unmarked;
+    unmarked.push(first_closure);
+
+    while(!unmarked.empty()){
+      std::unordered_set<int> current_closure = unmarked.front();
+      unmarked.pop();
+
+      std::string current_key = getClosureKey(current_closure);
+      int current_index = closure_to_index[current_key];
+
+      std::unordered_map<char, std::unordered_set<int>> symbol_to_closure;
+
+      for(int state_index : current_closure){
+        for(auto t : initial_fsa[state_index].transitions){
+          if(t.first == '\0'){
+            continue;
+          }
+
+          char symbol = t.first;
+          int new_origin_state_index = t.second;
+
+          std::unordered_set<int> closure = epsilonClosure(new_origin_state_index);
+          symbol_to_closure.insert({symbol, closure});
+        }
+      }
+
+      for(auto& entry : symbol_to_closure){
+        char symbol = entry.first;
+        auto closure = entry.second;
+        
+        std::string closure_key = getClosureKey(closure);
+        int target_index;
+
+        if(closure_to_index.find(closure_key) == closure_to_index.end()){
+          target_index = fsa_no_epsilon.size();
+          closure_to_index.insert({closure_key, target_index});
+
+          State new_state = createState("q" + std::to_string(target_index), closure);
+          
+          fsa_no_epsilon.push_back(new_state);
+          unmarked.push(closure);
+        } else{
+          target_index = closure_to_index[closure_key];
+        }
+
+        //replaces existing transitions end state to the actual correct one (removes it first if it exists)
+        auto itr = fsa_no_epsilon[current_index].transitions.find(symbol);
+
+        if(itr != fsa_no_epsilon[current_index].transitions.end() && itr->second > fsa_no_epsilon.size()){
+          fsa_no_epsilon[current_index].transitions.erase(itr);
+        }
+
+        fsa_no_epsilon[current_index].transitions.insert({symbol, target_index});
       }
     }
-
-    index_key.clear();
 
     // subset construction
     std::vector<State> dfa;
@@ -315,9 +388,13 @@ private:
   bool equalVectors(std::vector<int> a, std::vector<int> b) {
     if (a.empty() && b.empty()) {
       return true;
-    } else if (a.empty()) {
+    }
+
+    if (a.empty()) {
       return false;
-    } else if (b.empty()) {
+    }
+
+    if (b.empty()) {
       return false;
     }
 
