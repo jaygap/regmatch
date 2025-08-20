@@ -2,15 +2,17 @@
 #include <iostream>
 
 int main() {
-  Matcher m("a*b|c?d+");
+  Matcher m("a*b*c*");
 
   m.printFSA();
 
   std::cout << std::boolalpha << std::endl;
-  std::cout << m.matchString("a") << '\n';
-  std::cout << m.matchString("b") << '\n';
-  std::cout << m.matchString("c") << '\n';
-  std::cout << m.matchString("ab") << '\n';
+  std::cout << m.matchString("aaaaa") << '\n';
+  std::cout << m.matchString("bbbbb") << '\n';
+  std::cout << m.matchString("ccccc") << '\n';
+  std::cout << m.matchString("aabbcc") << '\n';
+  std::cout << m.matchString("abbccc") << '\n';
   std::cout << m.matchString("ac") << '\n';
   std::cout << m.matchString("bc") << '\n';
+  std::cout << m.matchString("") << '\n';
 }
