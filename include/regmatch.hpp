@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <algorithm> 
 #include <vector>
 #include <queue>
@@ -219,7 +220,6 @@ private:
     s[s.size() - 1].is_final = true;
 
     fsa = s;
-    printFSA();
 
     return s;
   }
@@ -232,7 +232,7 @@ private:
     return false;
   }
 
-  std::vector<State> removeEpsilonTransitions(std::vector<State>& initial_fsa) {
+  std::vector<State> removeEpsilonTransitions(const std::vector<State>& initial_fsa) {
     // epsilon transition removal
     std::vector<State> fsa_no_epsilon;
 
@@ -262,12 +262,12 @@ private:
     };
 
     //creates a string that is a unique key for epsilon-closure
-    auto getClosureKey = [](const std::unordered_set<int>& closure) -> std::string {
+    auto getClosureKey = [](const std::unordered_set<int>& closure) -> std::string{
       std::vector<int> sorted(closure.begin(), closure.end());
       std::sort(sorted.begin(), sorted.end());
       std::string key;
 
-      for (int index : sorted) {
+      for (int index : sorted){
         key += std::to_string(index) + ",";
       }
       
@@ -357,7 +357,7 @@ private:
   }
 
   //makes fsa detereministic
-  std::vector<State> subsetConstruction(std::vector<State>& initial_fsa){
+  std::vector<State> subsetConstruction(const std::vector<State>& initial_fsa){
     std::vector<State> dfa;
 
     auto setStatesReachable = [](const State& state) -> std::unordered_map<char, std::unordered_set<int>>{
@@ -458,76 +458,102 @@ private:
     return dfa;
   }
 
-  int indexOf(std::vector<int> needle, std::vector<std::vector<int>> haystack) {
-    if (needle.empty() || haystack.empty()) {
-      return -1;
-    }
+  std::vector<State> minimiseDFA(const std::vector<State>& initial_fsa){
+    std::vector<State> min_dfa;
 
-    for (int i = 0; i < haystack.size(); i++) {
-      if (equalVectors(needle, haystack[i])) {
-        return i;
+    std::set<std::pair<int, int>> state_pairs;
+    
+    for(int i = 0; i < initial_fsa.size(); i++){
+      for(int x = i + 1; x < initial_fsa.size(); x++){
+        state_pairs.insert({i, x});
       }
     }
 
-    return -1;
-  }
+    std::set<std::pair<int, int>> marked_states;
+    bool marked_set_updated = true;
 
-  // compares the values of each vector, regardless of position
-  bool equalVectors(std::vector<int> a, std::vector<int> b) {
-    if (a.empty() && b.empty()) {
-      return true;
-    }
+    while(marked_set_updated){
+      marked_set_updated = false;
 
-    if (a.empty()) {
-      return false;
-    }
+      for(auto itr = state_pairs.begin(); itr != state_pairs.end(); itr++){
+        if(marked_states.find({itr->first, itr->second}) != marked_states.end()){
+          continue;
+        }
 
-    if (b.empty()) {
-      return false;
-    }
+        State state1 = initial_fsa[itr->first];
+        State state2 = initial_fsa[itr->second];
 
-    if (a.size() != b.size()) {
-      return false;
-    }
+        if(state1.is_final != state2.is_final){
+          marked_states.insert({itr->first, itr->second});
+          marked_set_updated = true;
+          continue;
+        }
 
-    std::unordered_multiset<int> set_a(a.begin(), a.end());
-    std::unordered_multiset<int> set_b(b.begin(), b.end());
+        auto transitions1 = state1.transitions;
+        auto transitions2 = state2.transitions;
 
-    for (auto itr_a = a.begin(); itr_a != a.end(); itr_a++) {
-      if (set_b.count(*itr_a) != set_a.count(*itr_a)) {
-        return false;
+        if(transitions1.size() != transitions2.size()){
+          marked_states.insert({itr->first, itr->second});
+          marked_set_updated = true;
+          continue;
+        }
+
+        for(auto t1 : transitions1){
+
+          auto t2 = transitions2.find(t1.first);
+
+          if(t2 == transitions2.end()){
+            marked_states.insert({itr->first, itr->second});
+            marked_set_updated = true;
+            goto property_matched;
+          }
+
+          if(marked_states.find({t1.second, t2->second}) != marked_states.end()){
+            marked_states.insert({itr->first, itr->second});
+            marked_set_updated = true;
+            goto property_matched;
+          }
+        }
+
+        property_matched:;
       }
     }
 
-    return true;
-  }
-
-  bool vectorContains(int needle, std::vector<int> haystack) {
-    if (haystack.empty()) {
-      return false;
+    for(auto pair : marked_states){
+      state_pairs.erase(state_pairs.find(pair));
     }
 
-    for (int i = 0; i < haystack.size(); i++) {
-      if (haystack[i] == needle) {
-        return true;
+    std::unordered_map<int, int> index_to_merged_index;
+
+    for(auto pair : state_pairs){
+      index_to_merged_index.insert({pair.second, pair.first});
+    }
+
+    for(int i = 0; i < initial_fsa.size(); i++){
+      if(index_to_merged_index.count(i) == 0){
+        //need to be able to determine if state is result of merging multiple
+
+        State new_state;
+        new_state.label = "q" + std::to_string(min_dfa.size());
+        new_state.is_final = initial_fsa[i].is_final;
+
+        for(auto t : initial_fsa[i].transitions){
+          int transition_end;
+
+          if(index_to_merged_index.count(t.second) != 0){
+            transition_end = index_to_merged_index[t.second];
+          } else{
+            transition_end = t.second;
+          }
+
+          new_state.transitions.insert({t.first, transition_end});
+        }
+
+        min_dfa.push_back(new_state);
       }
     }
 
-    return false;
-  }
-
-  bool vectorInVector(std::vector<int> needle, std::vector<std::vector<int>> haystack) {
-    if (needle.empty() || haystack.empty()) {
-      return false;
-    }
-
-    for (auto itr = haystack.begin(); itr != haystack.end(); itr++) {
-      if (equalVectors(needle, *itr)) {
-        return true;
-      }
-    }
-
-    return false;
+    return min_dfa;
   }
 
 public:
@@ -538,6 +564,8 @@ public:
     //convert to min-dfa
     fsa = removeEpsilonTransitions(fsa);
     fsa = subsetConstruction(fsa);
+    printFSA();
+    fsa = minimiseDFA(fsa);
   }
 
   std::string getRegex() { return regex; }
