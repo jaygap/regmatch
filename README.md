@@ -12,15 +12,15 @@ Instantiate a variable of type `Matcher` and pass in a regular expression to the
 
 ### Syntax
 
-- `*` zero or more of the preceding character or group (*not completed*)
-- `+` one or more of the preceding character or group (*not completed*)
-- `?` zero or one of the preceding character or group (*not completed*)
-- `|` the left or right sequence of characters or group (*not completed*)
+- `*` zero or more of the preceding character or group
+- `+` one or more of the preceding character or group
+- `?` zero or one of the preceding character or group
+- `|` the left or right sequence of characters or group
 - `^` the start of a line (or not the following when at the start of a `[]` group) (*not completed*)
 - `$` the end of a line (*not completed*)
-- `\` the proceding character literally (*not completed*)
+- `\` the proceding character literally
 - `()` groups a sequence of characters
-- `[]` defines a list of potential characters (`[abc]` is equivalent to `a|b|c` but provides additional functionality with ranges and `^` operator) (*not completed*)
+- `[]` defines a list of potential characters (`[abc]` is equivalent to `a|b|c` but provides additional functionality with ranges and `^` operator)
 - `{x}` *x* occurences of the prceding character or group (*not completed*)
 
 *Support for other syntax elements will be included such as for white space characters or non-whitespace characters but will only be listed after these basic syntax elements are completed*
