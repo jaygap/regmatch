@@ -749,7 +749,25 @@ class Matcher {
         bool compareRegex(Matcher m) {
             // check if the regex of self and m are equivalent
 
-            return false;
+            if(fsa.size() != m.fsa.size()){
+                return false;
+            }
+
+            int index = 0;
+
+            for(State s : m.fsa){
+                for(auto t : s.transitions){
+                    if(fsa[index].transitions.count(t.first) == 0){
+                        return false;
+                    } else{
+                        if(fsa[index].transitions.find(t.first)->second != t.second){
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true;
         }
 
         bool compareRegex(std::string s) { return compareRegex(Matcher(s)); }
