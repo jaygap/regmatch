@@ -2,15 +2,13 @@
 #include <iostream>
 
 int main() {
-  Matcher m("[a-Z]+");
+  Matcher m("https://([a-Z0-9]+\\.)?[a-Z0-9]+(\\.[a-Z0-9]+)+");
 
   m.printFSA();
 
   std::cout << std::boolalpha << std::endl;
-  std::cout << m.matchString("abcdefgh") << '\n';
-  std::cout << m.matchString("ABCDEFGH") << '\n';
-  std::cout << m.matchString("hgfedcba") << '\n';
-  std::cout << m.matchString("HGFEDCBA") << '\n';
-  std::cout << m.matchString("aBcDeFgH") << '\n';
-  std::cout << m.matchString("hGfEdCbA") << '\n';
+  std::cout << m.matchString("https://google.com") << '\n';
+  std::cout << m.matchString("https://www.qmul.ac.uk") << '\n';
+  std::cout << m.matchString("https://www.linkedin.com") << '\n';
+  std::cout << m.matchString("https://www.qmplus.org") << '\n';
 }

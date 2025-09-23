@@ -168,6 +168,7 @@ class Matcher {
                         std::cout << "ERROR: Invalid regex. \\ is at the end of a string "
                             "which is not allowed. It should always be followed by "
                             "another character";
+                        return std::vector<State>{};
                     }
 
                     state = State();
@@ -196,6 +197,50 @@ class Matcher {
                         regex_pointer++;
                         current = regex.at(regex_pointer);
                     } while(current != ']');
+
+                    //check ranges are valid (no letter-number or nonalphanumeric-anything)
+                    for(int i = 0; i < range_definition.length(); i++){
+
+                        if(range_definition.at(i) == '\\' && i + 1 >= range_definition.length()){
+                            std::cout << "ERROR: the range definition: [" + range_definition + "] is not valid as it ends with a '\\' without specifying the character.";
+                            return std::vector<State>{};
+                        }
+
+                        if(range_definition.at(i) != '-'){
+                            continue;
+                        }
+
+                        const std::unordered_set<char> alphanumeric_char = {  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+                                                                        'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
+                                                                        'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+
+                        if(i > 0 && range_definition.at(i - 1) == '\\'){
+                            continue;
+                        }
+
+                        if(i + 1 >= range_definition.length()){
+                            std::cout << "ERROR: the range definition: [" + range_definition + "] is not valid as it does only defines the start of a range and not the end.\n";
+                            return std::vector<State>{};
+                        }
+
+                        if(alphanumeric_char.count(std::tolower(range_definition.at(i - 1))) == 0 || alphanumeric_char.count(std::tolower(range_definition.at(i + 1))) == 0){
+                            std::cout << "ERROR: the range definition: [" + range_definition + "] is not valid as it defines a range using non-alphanumeric characters.\n";
+                            return std::vector<State>{};
+                        }
+
+                        if(0x30 <= range_definition.at(i - 1) && range_definition.at(i - 1) <= 0x39){
+                            if(0x30 > range_definition.at(i + 1) || range_definition.at(i + 1) > 0x39){
+                                std::cout << "ERROR: the range definition: [" + range_definition + "] is not valid as it defines a range from a number to a letter.\n";
+                                return std::vector<State>{};
+                            }
+                        } else{
+                            if(0x30 <= range_definition.at(i + 1) && range_definition.at(i + 1) <= 0x39){
+                                std::cout << "ERROR: the range definition: [" + range_definition + "] is not valid as it defines a range from a letter to a number.\n";
+                                return std::vector<State>{};
+                            }
+                        }
+
+                    }
 
                     std::unordered_set<char> range = getCharInRange(range_definition);
 
@@ -275,7 +320,6 @@ class Matcher {
                         std::pair<char, char> lowercase_bounds = {std::tolower(start), std::tolower(end)};
                         std::pair<char, char> uppercase_bounds = {std::toupper(start), std::toupper(end)};
 
-                        //TO COMPLETE
                         for(int i = 0; lowercase_bounds.first + i <= lowercase_bounds.second; i++){
                             valid_chars.insert(lowercase_bounds.first + i);
                             valid_chars.insert(uppercase_bounds.first + i);
@@ -283,6 +327,11 @@ class Matcher {
                     }
 
                 } else{
+                    if(range_definition.at(i) == '\\'){
+                        valid_chars.insert(range_definition.at(i + 1));
+                        i++;
+                    }
+
                     valid_chars.insert(range_definition.at(i));
                 }
             }
@@ -593,7 +642,7 @@ class Matcher {
                         }
                     }
 
-property_matched:;
+                    property_matched:;
                 }
             }
 
@@ -638,6 +687,11 @@ property_matched:;
         Matcher(std::string s) {
             regex = s;
             fsa = genFSA();
+
+            if(fsa.empty()){
+                std::cout << "There has been an error in generating the FSA.\n";
+                return;
+            }
 
             // convert to min-dfa
             fsa = removeEpsilonTransitions(fsa);
