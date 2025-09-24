@@ -70,9 +70,7 @@ class Matcher {
             std::stack<int> state_pointers;
             char current;
             int depth = 0;
-            std::stack<std::pair<int, int>>
-                depth_of_pipes; // keeps track of the (depth, state index of final state
-                                // in first branch) of different pipe operators
+            std::stack<std::pair<int, int>> depth_of_pipes; // keeps track of the (depth, state index of final state in first branch) of different pipe operators
 
             State state = State();
             state.label = "q0";
@@ -105,9 +103,7 @@ class Matcher {
                     depth--;
                 } else if (current == '*' || current == '+' || current == '?') {
                     if (regex_pointer == 0) {
-                        std::cout << "ERROR: Invalid regex. * or + or ? come at the start of "
-                            "the regex which is not allowed."
-                            << std::endl;
+                        std::cout << "ERROR: Invalid regex. * or + or ? come at the start of the regex which is not allowed." << std::endl;
                         return std::vector<State>{};
                     }
 
@@ -165,9 +161,7 @@ class Matcher {
                     std::cout << "start/end of line";
                 } else if (current == '\\') {
                     if (regex_pointer + 1 >= regex.size()) {
-                        std::cout << "ERROR: Invalid regex. \\ is at the end of a string "
-                            "which is not allowed. It should always be followed by "
-                            "another character";
+                        std::cout << "ERROR: Invalid regex. \\ is at the end of a string which is not allowed. It should always be followed by another character";
                         return std::vector<State>{};
                     }
 
@@ -696,41 +690,40 @@ class Matcher {
             // convert to min-dfa
             fsa = removeEpsilonTransitions(fsa);
             fsa = subsetConstruction(fsa);
-            printFSA();
             fsa = minimiseDFA(fsa);
         }
 
         std::string getRegex() { return regex; }
 
-        void printFSA() {
-            std::cout << "States: {";
+        //void printFSA() {
+        //    std::cout << "States: {";
 
-            for (int i = 0; i < fsa.size(); i++) {
-                if (fsa[i].is_final) {
-                    std::cout << "\e[4m"; // underlines final states
-                }
+        //    for (int i = 0; i < fsa.size(); i++) {
+        //        if (fsa[i].is_final) {
+        //            std::cout << "\e[4m"; // underlines final states
+        //        }
 
-                std::cout << fsa[i].label;
+        //        std::cout << fsa[i].label;
 
-                if (fsa[i].is_final) {
-                    std::cout << "\e[0m"; // ends underline of final states
-                }
+        //        if (fsa[i].is_final) {
+        //            std::cout << "\e[0m"; // ends underline of final states
+        //        }
 
-                if (i + 1 < fsa.size()) {
-                    std::cout << ", ";
-                }
-            }
-            std::cout << "}\nTransitions:\n{\n";
+        //        if (i + 1 < fsa.size()) {
+        //            std::cout << ", ";
+        //        }
+        //    }
+        //    std::cout << "}\nTransitions:\n{\n";
 
-            for (const State &s : fsa) {
-                for (auto transition : s.transitions) {
-                    std::cout << "(" << s.label << ", " << transition.first << ", "
-                        << fsa[transition.second].label << ")\n";
-                }
-            }
+        //    for (const State &s : fsa) {
+        //        for (auto transition : s.transitions) {
+        //            std::cout << "(" << s.label << ", " << transition.first << ", "
+        //                << fsa[transition.second].label << ")\n";
+        //        }
+        //    }
 
-            std::cout << '}' << std::endl;
-        }
+        //    std::cout << '}' << std::endl;
+        //}
 
         bool matchString(std::string s) {
             State active_state = fsa.front(); // first state is always the initial state
@@ -756,15 +749,19 @@ class Matcher {
             int index = 0;
 
             for(State s : m.fsa){
+                if(s.is_final != fsa[index].is_final){
+                    return false;
+                }
+
                 for(auto t : s.transitions){
-                    if(fsa[index].transitions.count(t.first) == 0){
+                    auto transition = fsa[index].transitions.find(t.first);
+
+                    if(transition == fsa[index].transitions.end() || transition->second != t.second){
                         return false;
-                    } else{
-                        if(fsa[index].transitions.find(t.first)->second != t.second){
-                            return false;
-                        }
                     }
                 }
+
+                index++;
             }
 
             return true;

@@ -2,10 +2,8 @@
 #include <iostream>
 
 int main() {
-    Matcher m("(abc)+");
-    Matcher n("[ab]+");
-
-    m.printFSA();
+    Matcher m("a+");
+    Matcher n("a*a");
 
     std::cout << std::boolalpha << std::endl;
     std::cout << m.compareRegex(n) << '\n';
