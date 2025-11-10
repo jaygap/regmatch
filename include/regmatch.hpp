@@ -2,11 +2,11 @@
 #include <cctype>
 #include <iostream>
 #include <queue>
-#include <set>
 #include <stack>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <map>
 #include <vector>
 
 // TODO:
@@ -38,10 +38,6 @@ struct State {
     std::string label;
 };
 
-struct FSA {
-    std::vector<State> states;
-};
-
 class Matcher {
     private:
         std::vector<State> fsa;
@@ -61,6 +57,11 @@ class Matcher {
             }
 
             return false;
+        }
+
+        std::vector<State> processNextToken(std::vector<State> &fsa, char current){
+
+            return fsa;
         }
 
         std::vector<State> genFSA() {
@@ -289,8 +290,6 @@ class Matcher {
 
             s[s.size() - 1].is_final = true;
 
-            fsa = s;
-
             return s;
         }
 
@@ -341,8 +340,7 @@ class Matcher {
             return false;
         }
 
-        std::vector<State>
-            removeEpsilonTransitions(const std::vector<State> &initial_fsa) {
+        std::vector<State> removeEpsilonTransitions(const std::vector<State> &initial_fsa) {
                 // epsilon transition removal
                 std::vector<State> fsa_no_epsilon;
 
@@ -471,6 +469,7 @@ class Matcher {
                     }
                 }
 
+
                 return fsa_no_epsilon;
             }
 
@@ -478,15 +477,14 @@ class Matcher {
         std::vector<State> subsetConstruction(const std::vector<State> &initial_fsa) {
             std::vector<State> dfa;
 
-            auto setStatesReachable = [](const State &state)
-                -> std::unordered_map<char, std::unordered_set<int>> {
-                    std::unordered_map<char, std::unordered_set<int>> set_states;
+            auto setStatesReachable = [](const State &state) -> std::unordered_map<char, std::unordered_set<int>> {
+                    std::unordered_map<char, std::unordered_set<int>> state_pair;
 
                     for (auto t : state.transitions) {
-                        set_states[t.first].insert(t.second);
+                        state_pair[t.first].insert(t.second);
                     }
 
-                    return set_states;
+                    return state_pair;
                 };
 
             auto getSetStateKey = [](std::unordered_set<int> set_state) -> std::string {
@@ -501,21 +499,19 @@ class Matcher {
                 return key;
             };
 
-            auto createState =
-                [initial_fsa](std::string label,
-                        std::unordered_set<int> set_state) -> State {
-                    State state;
-                    state.label = label;
-                    state.is_final = false;
+            auto createState = [initial_fsa](std::string label, std::unordered_set<int> set_state) -> State {
+                State state;
+                state.label = label;
+                state.is_final = false;
 
-                    for (int index : set_state) {
-                        if (initial_fsa[index].is_final) {
-                            state.is_final = true;
-                        }
+                for (int index : set_state) {
+                    if (initial_fsa[index].is_final) {
+                        state.is_final = true;
                     }
+                }
 
-                    return state;
-                };
+                return state;
+            };
 
             std::unordered_map<std::string, int> set_to_index;
             std::unordered_set<int> initial_set;
@@ -580,101 +576,136 @@ class Matcher {
         }
 
         std::vector<State> minimiseDFA(const std::vector<State> &initial_fsa) {
+
+            //DELETE
+            printFSA();
+
             std::vector<State> min_dfa;
 
-            std::set<std::pair<int, int>> state_pairs;
+            std::map<std::pair<int, int>, bool> state_pair;
 
-            for (int i = 0; i < initial_fsa.size(); i++) {
-                for (int x = i + 1; x < initial_fsa.size(); x++) {
-                    state_pairs.insert({i, x});
+            for (int i = 0; i < initial_fsa.size(); i++){
+                for (int x = i + 1; x < initial_fsa.size(); x++){
+                    state_pair.insert({{i, x}, false});
                 }
             }
 
-            std::set<std::pair<int, int>> marked_states;
-            bool marked_set_updated = true;
+            bool change_to_state_pair;
 
-            while (marked_set_updated) {
-                marked_set_updated = false;
+            do{
+                change_to_state_pair = false;
 
-                for (auto itr = state_pairs.begin(); itr != state_pairs.end(); itr++) {
-                    if (marked_states.find({itr->first, itr->second}) !=
-                            marked_states.end()) {
+                for (auto itr = state_pair.begin(); itr != state_pair.end(); itr++){
+                    if (itr->second){
                         continue;
                     }
 
-                    State state1 = initial_fsa[itr->first];
-                    State state2 = initial_fsa[itr->second];
+                    State state1 = initial_fsa[itr->first.first];
+                    State state2 = initial_fsa[itr->first.second];
 
-                    if (state1.is_final != state2.is_final) {
-                        marked_states.insert({itr->first, itr->second});
-                        marked_set_updated = true;
-                        continue;
+                    if (statePairShouldMark(state_pair, state1, state2)){
+                        itr->second = true;
+                        change_to_state_pair = true;
                     }
+                }
+            } while(!change_to_state_pair);
 
-                    auto transitions1 = state1.transitions;
-                    auto transitions2 = state2.transitions;
+            std::vector<std::unordered_set<int>> set_states;
 
-                    if (transitions1.size() != transitions2.size()) {
-                        marked_states.insert({itr->first, itr->second});
-                        marked_set_updated = true;
-                        continue;
+            for (auto itr = state_pair.begin(); itr != state_pair.end(); itr++){
+                bool added_state = false;
+
+                if (itr->second){
+                    continue;
+                }
+
+                for (int i = 0; i < set_states.size(); i++){
+                    if (set_states[i].count(itr->first.first) != 0){
+                        set_states[i].insert(itr->first.second);
+                        added_state = true;
+                        break;
                     }
+                }
 
-                    for (auto t1 : transitions1) {
-
-                        auto t2 = transitions2.find(t1.first);
-
-                        if (t2 == transitions2.end()) {
-                            marked_states.insert({itr->first, itr->second});
-                            marked_set_updated = true;
-                            goto property_matched;
-                        } else if (marked_states.find({t1.second, t2->second}) !=
-                                marked_states.end()) {
-                            marked_states.insert({itr->first, itr->second});
-                            marked_set_updated = true;
-                            goto property_matched;
-                        }
-                    }
-
-                    property_matched:;
+                if (!added_state){
+                    set_states.push_back({itr->first.first, itr->first.second});
                 }
             }
 
-            for (auto pair : marked_states) {
-                state_pairs.erase(state_pairs.find(pair));
-            }
+            //find the initial state
+            std::unordered_set<int> current_set_state;
+            std::queue<std::unordered_set<int>> state_queue;
+            std::unordered_map<int, int> old_new_indexes;
 
-            std::unordered_map<int, int> index_to_merged_index;
-
-            for (auto pair : state_pairs) {
-                index_to_merged_index.insert({pair.second, pair.first});
-            }
-
-            for (int i = 0; i < initial_fsa.size(); i++) {
-                if (index_to_merged_index.count(i) == 0) {
-                    // need to be able to determine if state is result of merging multiple
-
-                    State new_state;
-                    new_state.label = "q" + std::to_string(min_dfa.size());
-                    new_state.is_final = initial_fsa[i].is_final;
-
-                    for (auto t : initial_fsa[i].transitions) {
-                        int transition_end;
-
-                        if (index_to_merged_index.count(t.second) != 0) {
-                            transition_end = index_to_merged_index[t.second];
-                        } else {
-                            transition_end = t.second;
-                        }
-
-                        new_state.transitions.insert({t.first, transition_end});
-                    }
-
-                    min_dfa.push_back(new_state);
+            for (auto itr = set_states.begin(); itr != set_states.end(); itr++){
+                if(itr->count(0) != 0){
+                    state_queue.push(*itr);
+                    break;
                 }
             }
+
+            if (state_queue.empty()){
+                state_queue.push({0});
+            }
+
+            while (!state_queue.empty()){
+                current_set_state = state_queue.front();
+                state_queue.pop();
+
+                for (auto itr = current_set_state.begin(); itr != current_set_state.end(); itr++){
+                    old_new_indexes.insert({*itr, min_dfa.size()});
+                }
+
+                State s;
+                s.label = "q" + std::to_string(min_dfa.size());
+                s.is_final = initial_fsa[*(current_set_state.begin())].is_final;
+
+                //TODO add next set_state to queue
+
+                min_dfa.push_back(s);
+            }
+
+            //TODO sort out transitions. maybe add all of them and change the final states according to map?? maybe only add them after??
 
             return min_dfa;
+        }
+
+        bool statePairShouldMark(const std::map<std::pair<int, int>, bool>& state_pair, State state1, State state2){
+            auto getStatePair = [&state_pair](int num1, int num2) -> std::map<std::pair<int, int>, bool>::const_iterator{
+                if (num1 > num2){
+                    return state_pair.find({num2, num1});
+                } else{
+                    return state_pair.find({num1, num2});
+                }
+            };
+
+            if (state1.is_final != state2.is_final){
+                return true;
+            }
+
+            if (state1.transitions.size() != state2.transitions.size()){
+                return true;
+            }
+
+            bool different_transitions = false;
+
+            for (auto t1 = state1.transitions.begin(); t1 != state1.transitions.end(); t1++){
+                auto t2 = state2.transitions.find(t1->first);
+
+                if (t2 == state2.transitions.end()){
+                    different_transitions = true;
+                    break;
+                } else if (t2->second != t1->second && getStatePair(t1->second, t2->second)->second){
+                    different_transitions = true;
+                    break;
+                }
+            }
+
+            if (different_transitions){
+                return true;
+            }
+
+            return false;
         }
 
     public:
@@ -686,44 +717,45 @@ class Matcher {
                 std::cout << "There has been an error in generating the FSA.\n";
                 return;
             }
-
+ 
             // convert to min-dfa
             fsa = removeEpsilonTransitions(fsa);
+
             fsa = subsetConstruction(fsa);
+
             fsa = minimiseDFA(fsa);
         }
 
         std::string getRegex() { return regex; }
 
-        //void printFSA() {
-        //    std::cout << "States: {";
+        void printFSA() {
+            std::cout << "States: {";
 
-        //    for (int i = 0; i < fsa.size(); i++) {
-        //        if (fsa[i].is_final) {
-        //            std::cout << "\e[4m"; // underlines final states
-        //        }
+            for (int i = 0; i < fsa.size(); i++) {
+                if (fsa[i].is_final) {
+                    std::cout << "\e[4m"; // underlines final states
+                }
 
-        //        std::cout << fsa[i].label;
+                std::cout << fsa[i].label;
 
-        //        if (fsa[i].is_final) {
-        //            std::cout << "\e[0m"; // ends underline of final states
-        //        }
+                if (fsa[i].is_final) {
+                    std::cout << "\e[0m"; // ends underline of final states
+                }
 
-        //        if (i + 1 < fsa.size()) {
-        //            std::cout << ", ";
-        //        }
-        //    }
-        //    std::cout << "}\nTransitions:\n{\n";
+                if (i + 1 < fsa.size()) {
+                    std::cout << ", ";
+                }
+            }
+            std::cout << "}\nTransitions:\n{\n";
 
-        //    for (const State &s : fsa) {
-        //        for (auto transition : s.transitions) {
-        //            std::cout << "(" << s.label << ", " << transition.first << ", "
-        //                << fsa[transition.second].label << ")\n";
-        //        }
-        //    }
+            for (const State &s : fsa) {
+                for (auto transition : s.transitions) {
+                    std::cout << "(" << s.label << ", " << transition.first << ", " << fsa[transition.second].label << ")\n";
+                }
+            }
 
-        //    std::cout << '}' << std::endl;
-        //}
+            std::cout << '}' << std::endl;
+        }
 
         bool matchString(std::string s) {
             State active_state = fsa.front(); // first state is always the initial state
